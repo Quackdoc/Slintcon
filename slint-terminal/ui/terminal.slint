@@ -1,0 +1,112 @@
+// The terminal widget. The application re-exports `TerminalApi` from its
+// window and calls `slint_terminal::attach` with it (see the crate docs).
+
+export global TerminalApi {
+    // The rendered terminal.
+    in property <image> frame;
+    // The title the program asked for.
+    in property <string> title: "";
+    // A program is using the mouse: the pointer is an arrow, not a text cursor.
+    in property <bool> mouse-reporting: false;
+    // The cell size in physical pixels; the widget derives its preferred size from it.
+    in property <float> cell-width: 0;
+    in property <float> cell-height: 0;
+    // Set by the `Terminal` element: the requested font size in physical
+    // pixels, 0 for automatic.
+    in-out property <float> font-px: 0;
+    // `font-px` changed.
+    callback font-changed();
+
+    // Returns whether the terminal consumed the key.
+    callback key(event: KeyEvent) -> EventResult;
+    // `kind`: 0 down, 1 up, 2 move, 3 cancel. `button`: 0 left, 1 middle,
+    // 2 right, 3 other. Positions are in logical pixels.
+    callback pointer(kind: int, button: int, x: float, y: float, shift: bool, ctrl: bool, alt: bool);
+    callback scroll(delta-y: float, x: float, y: float, shift: bool, ctrl: bool, alt: bool);
+    // The widget's size in physical pixels and the scale factor.
+    callback viewport(width: float, height: float, scale: float);
+    // The program in the terminal ended.
+    callback exited();
+}
+
+export component Terminal inherits FocusScope {
+    // The font size; 0 picks one automatically (or the application's default).
+    in property <length> font-size: 0px;
+    // The size the widget asks for when its parent does not decide: this many
+    // cells. An explicit size or a layout overrides it.
+    in property <int> columns: 80;
+    in property <int> rows: 24;
+
+    // Bound through a private property: binding a library global's property
+    // straight to an element does not update.
+    private property <image> frame <=> TerminalApi.frame;
+    private property <bool> mouse-reporting <=> TerminalApi.mouse-reporting;
+    private property <float> cell-width <=> TerminalApi.cell-width;
+    private property <float> cell-height <=> TerminalApi.cell-height;
+
+    preferred-width: root.columns * root.cell-width * 1phx;
+    preferred-height: root.rows * root.cell-height * 1phx;
+
+    key-pressed(event) => {
+        TerminalApi.key(event)
+    }
+
+    changed font-size => {
+        TerminalApi.font-px = root.font-size / 1phx;
+        TerminalApi.font-changed();
+    }
+
+    init => {
+        TerminalApi.font-px = root.font-size / 1phx;
+        TerminalApi.viewport(root.width / 1phx, root.height / 1phx, 1px / 1phx);
+        root.focus();
+    }
+    changed width => {
+        TerminalApi.viewport(root.width / 1phx, root.height / 1phx, 1px / 1phx);
+    }
+    changed height => {
+        TerminalApi.viewport(root.width / 1phx, root.height / 1phx, 1px / 1phx);
+    }
+
+    Image {
+        source: root.frame;
+        width: 100%;
+        height: 100%;
+        image-fit: fill;
+    }
+
+    TouchArea {
+        width: 100%;
+        height: 100%;
+        mouse-cursor: root.mouse-reporting ? MouseCursor.default : MouseCursor.text;
+
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                root.focus();
+            }
+            TerminalApi.pointer(
+                event.kind == PointerEventKind.down ? 0
+                    : event.kind == PointerEventKind.up ? 1
+                    : event.kind == PointerEventKind.move ? 2 : 3,
+                event.button == PointerEventButton.left ? 0
+                    : event.button == PointerEventButton.middle ? 1
+                    : event.button == PointerEventButton.right ? 2 : 3,
+                self.mouse-x / 1px,
+                self.mouse-y / 1px,
+                event.modifiers.shift,
+                event.modifiers.control,
+                event.modifiers.alt);
+        }
+
+        scroll-event(event) => {
+            TerminalApi.scroll(
+                event.delta-y / 1px,
+                self.mouse-x / 1px,
+                self.mouse-y / 1px,
+                event.modifiers.shift,
+                event.modifiers.control,
+                event.modifiers.alt);
+            return accept;
+        }
+    }
+}

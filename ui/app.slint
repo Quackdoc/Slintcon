@@ -1,0 +1,17 @@
+import { Terminal, TerminalApi } from "@SlintTerminal";
+
+// The application window must export the widget's global so Rust can reach it.
+export { TerminalApi }
+
+export component AppWindow inherits Window {
+    title: TerminalApi.title == "" ? "slintcon" : TerminalApi.title;
+    preferred-width: 960px;
+    preferred-height: 600px;
+    min-width: 160px;
+    min-height: 100px;
+    background: #0f0d0e;
+
+    forward-focus: terminal;
+
+    terminal := Terminal { }
+}

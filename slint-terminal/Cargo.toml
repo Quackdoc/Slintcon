@@ -1,0 +1,47 @@
+[package]
+name = "slint-terminal"
+version = "0.1.0"
+description = "A terminal emulator widget for Slint"
+license = "MIT"
+readme = "readme.md"
+keywords = ["terminal", "slint", "widget", "vt100"]
+categories = ["gui", "command-line-interface"]
+authors.workspace = true
+edition.workspace = true
+# `slint-build` publishes this name so apps can `import ... from "@SlintTerminal"`.
+links = "slintterminal"
+
+[dependencies]
+# `wayland-data-control` talks to Wayland compositors directly (wlr/ext
+# data-control). Without it arboard only knows X11, and on a Wayland desktop
+# nothing copied in other applications reaches us (and vice versa).
+arboard = { version = "3.7", features = ["wayland-data-control"] }
+bitflags = "2"
+bytemuck = { version = "1.23", features = ["derive"], optional = true }
+# `shape-run-cache` keeps shaped runs keyed by text and attributes, so rows
+# that did not change are not shaped again on every repaint.
+cosmic-text = { version = "0.19", features = ["shape-run-cache"] }
+glyphon = { version = "0.12", optional = true }
+log.workspace = true
+rio-graphics = "0.5.28"
+rio-vt = { version = "0.5.28", default-features = false, features = ["pty", "graphics"] }
+rustc-hash = "2.1"
+# Backends are the application's choice; only the API is needed here.
+slint = { workspace = true, features = ["std", "compat-1-18", "renderer-software"] }
+# Same wgpu tree as slint (unstable-wgpu-30) and glyphon 0.12
+wgpu = { version = "30", default-features = false, features = [
+    "wgsl",
+    "vulkan",
+    "gles",
+], optional = true }
+
+[features]
+default = []
+# GPU terminal renderer (needs Slint's wgpu support in the application).
+wgpu = ["dep:bytemuck", "dep:glyphon", "dep:wgpu", "slint/unstable-wgpu-30"]
+# Embed Iosevka Term SS12 (~10 MB). Off by default; without it the font is
+# taken from the system, falling back to another monospace font.
+bundled-font = []
+
+[build-dependencies]
+slint-build.workspace = true
